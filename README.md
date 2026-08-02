@@ -18,7 +18,7 @@ Reference: **Hiera-T** variant (smallest, most portable). Checkpoint from `wangl
 1. ✅ **Hiera image encoder** (trunk + FPN neck) → parity: stages 1.8e-6..2.4e-5, FPN 2.8e-7..1.8e-6 MATCH
 2. ✅ **prompt encoder + SAM2 mask decoder** (single-image, no memory) → masks 8.4e-5, iou 2.4e-7, obj exact MATCH.
    `infer_medsam2 <img> <x> <y>` = single-frame click→mask (Hiera + SAM2 decoder).
-3. ⏭ **memory attention + memory encoder** → 3D volume / video (the SAM2 temporal core; RoPE)
+3. ✅ **memory_attention (RoPE)** + **memory_encoder** → parity (3.29e-5 / 1.19e-6 MATCH). ⏭ propagation wiring (memory bank + temporal pos + obj pointers) for actual 3D/video click-propagation.
 4. ⏭ training ; 5. WASM ; 6. GPU (cuBLAS seam)
 
 Reuses from medsam_cpp: engine (`autograd/backend/ops2d/linalg/...`) + `sam_ops`/`sam_loss`/`net_sam`
