@@ -48,3 +48,29 @@ Returns backbone_fpn (4 feats @256) + pos. Decoder uses vision_features (64²/25
 - maxpool2d 2×2 s2 (have maxpool in autograd) ; LayerNorm channels-last (have) ; window part/unpart
   (have from vitb) ; plain SDPA softmax attn (have) ; MLP (have). pos_embed precomputed (export).
 - Later: RoPE (rotary pos emb) for memory attention (new).
+
+## Stage 3c — propagation wiring (SAM2Base track loop; the remaining integration)
+Config (from MedSAM2_latest / sam2.1_hiera_t): num_maskmem 7, mem_dim 64, hidden 256,
+directly_add_no_mem_embed True, sigmoid_scale_for_mem_enc 20.0, sigmoid_bias -10.0,
+binarize_mask_from_pts False, use_obj_ptrs_in_encoder True, add_tpos_enc_to_obj_ptrs True,
+proj_tpos_enc_in_obj_ptrs True, soft_no_obj_ptr False, pred_obj_scores True.
+Constants/weights: no_mem_embed[1,1,256], no_mem_pos_enc[1,1,256], maskmem_tpos_enc[7,1,1,64],
+no_obj_embed_spatial[1,64], no_obj_ptr[1,256], obj_ptr_proj=MLP 256→256→256→256,
+obj_ptr_tpos_proj=Linear 256→64. maskmem_pos_enc = PositionEmbeddingSine(32,temp1e4,normalize) →
+FIXED [1,64,64,64] const → PRECOMPUTE+export (like Hiera pos_embed; no sine impl needed).
+
+Loop (per object, frames in order from the prompt frame):
+- frame0 (is_init_cond_frame, has prompt): encode → pix_feat = current_feat + no_mem_embed (directly, no
+  memory_attention) → sam2_decode(prompt) → masks + iou + obj_score + sam_output_token(best-iou mask
+  token). obj_ptr = obj_ptr_proj(sam_output_token) (if no obj: no_obj_ptr). _encode_new_memory:
+  mask_for_mem = sigmoid(high_res_mask)*20-10 (skip_mask_sigmoid=True into memenc); maskmem_features =
+  memenc(pix_feat, mask_for_mem) (+ (1-is_obj)*no_obj_embed_spatial). Store {maskmem_features,
+  maskmem_pos_enc(const), obj_ptr, obj_score}.
+- frame t>0: encode → memory = cat(spatial memories[64²/64 from up to num_maskmem recent frames] +
+  obj_ptr tokens); memory_pos = cat(maskmem_pos_enc + maskmem_tpos_enc[num_maskmem-t_pos-1] ; obj temporal
+  pos). obj pointers: each 256-d obj_ptr split into 4 tokens of 64 (C//mem_dim); temporal =
+  obj_ptr_tpos_proj(get_1d_sine_pe(Δt/(max-1), dim=64)); num_obj_ptr_tokens excluded from RoPE.
+  pix_feat = memory_attention(current_feat, memory, curr_pos, memory_pos, num_obj_ptr_tokens) →
+  sam2_decode(no prompt; uses mask-mem-conditioned feat) → mask + obj_ptr → _encode_new_memory → store.
+Frame selection: cond frame (t_pos 0) + last (num_maskmem-1) frames (t_pos 1..6, temporal-strided).
+This is integration of the 4 verified modules — no new algorithms; needs a multi-frame parity harness.
