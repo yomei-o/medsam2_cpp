@@ -70,5 +70,15 @@ P(pix1).tofile(os.path.join(HERE,"prop_pix1.bin"))
 P(memory[:,0]).tofile(os.path.join(HERE,"prop_memory.bin"))
 P(memory_pos[:,0]).tofile(os.path.join(HERE,"prop_mempos.bin"))
 print("memory",tuple(memory.shape))
+# frame1 decode (no prompt -> dummy point (0,0) label -1) using the conditioned feature pix1
+with torch.no_grad():
+    hr1=[m.sam_mask_decoder.conv_s0(fpn1[0]), m.sam_mask_decoder.conv_s1(fpn1[1])]
+    dpc=torch.zeros(1,1,2); dpl=-torch.ones(1,1,dtype=torch.int32)
+    sp1,de1=m.sam_prompt_encoder(points=(dpc,dpl),boxes=None,masks=None)
+    lr1,iou1,mt1,os1=m.sam_mask_decoder(image_embeddings=pix1, image_pe=m.sam_prompt_encoder.get_dense_pe(),
+        sparse_prompt_embeddings=sp1, dense_prompt_embeddings=de1, multimask_output=False, repeat_image=False, high_res_features=hr1)
+P(fpn1[0]).tofile(os.path.join(HERE,"prop_hr256_1.bin")); P(fpn1[1]).tofile(os.path.join(HERE,"prop_hr128_1.bin"))
+P(lr1).tofile(os.path.join(HERE,"prop_mask1.bin")); P(iou1).tofile(os.path.join(HERE,"prop_iou1.bin"))
+print("frame1 mask", tuple(lr1.shape), "iou", float(iou1.ravel()[0]), "sparse1", tuple(sp1.shape))
 print("prop_weights.bin", len(blob)/1e6, "MB")
 print("obj_ptr0", tuple(obj_ptr0.shape), "mm0", tuple(mm0.shape), "pix1", tuple(pix1.shape))

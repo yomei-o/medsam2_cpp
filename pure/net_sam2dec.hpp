@@ -22,8 +22,9 @@ inline Sam2Out sam2_decode(const Tensor& img_embed, const Tensor& hr256, const T
   for (int64_t i = 0; i < Np; ++i) { pc[i*2] = (pts[i*2]+0.5f)/c.input; pc[i*2+1] = (pts[i*2+1]+0.5f)/c.input; }
   Tensor ppe = pe_encode(pc, Np, G);
   std::vector<Tensor> srows;
-  for (int64_t i = 0; i < Np; ++i) srows.push_back(add(slice_rows(ppe, i, i+1), ptemb[labels[i]]));
-  srows.push_back(not_a_point);
+  for (int64_t i = 0; i < Np; ++i) srows.push_back(labels[i] < 0 ? not_a_point            // label -1 -> not_a_point (pe zeroed)
+                                                                 : add(slice_rows(ppe, i, i+1), ptemb[labels[i]]));
+  srows.push_back(not_a_point);                                  // pad point (pad=True when no box)
   Tensor sparse = srows.size()==1 ? srows[0] : vcat(srows);
   std::vector<float> gc(HW*2);
   for (int64_t h=0; h<S; ++h) for (int64_t ww=0; ww<S; ++ww){ gc[(h*S+ww)*2]=(ww+0.5f)/S; gc[(h*S+ww)*2+1]=(h+0.5f)/S; }
