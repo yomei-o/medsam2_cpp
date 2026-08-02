@@ -18,7 +18,12 @@ Reference: **Hiera-T** variant (smallest, most portable). Checkpoint from `wangl
 1. ✅ **Hiera image encoder** (trunk + FPN neck) → parity: stages 1.8e-6..2.4e-5, FPN 2.8e-7..1.8e-6 MATCH
 2. ✅ **prompt encoder + SAM2 mask decoder** (single-image, no memory) → masks 8.4e-5, iou 2.4e-7, obj exact MATCH.
    `infer_medsam2 <img> <x> <y>` = single-frame click→mask (Hiera + SAM2 decoder).
-3. ✅ **memory_attention (RoPE)** + **memory_encoder** + **propagation conditioning** → parity (3.29e-5 / 1.19e-6 / 2.53e-5 MATCH). ⏭ multi-frame track driver (loop the verified pieces) for 3D/video click-propagation.
+3. ✅ **memory_attention (RoPE)** + **memory_encoder** + **propagation conditioning** → parity (3.29e-5 / 1.19e-6 / 2.53e-5 MATCH)
+4. ✅ **full multi-frame track** (`pure/track_medsam2.cpp`) — end-to-end 3D propagation reproduces PyTorch (obj_ptr 2e-6, mm0 1.7e-5, frame1 mask 3.2e-4 MATCH)
+
+**MedSAM2 (SAM2) is complete in pure C++**: Hiera encoder + SAM2 decoder + memory attention (RoPE) +
+memory encoder + the full frame-to-frame track loop, all matching PyTorch — i.e. click one slice, it
+propagates to the rest of the volume/video. Next (optional): a real-volume track CLI, training, WASM, GPU.
 4. ⏭ training ; 5. WASM ; 6. GPU (cuBLAS seam)
 
 Reuses from medsam_cpp: engine (`autograd/backend/ops2d/linalg/...`) + `sam_ops`/`sam_loss`/`net_sam`
