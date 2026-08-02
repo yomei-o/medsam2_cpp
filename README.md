@@ -14,11 +14,12 @@ different, larger architecture:
 Reference: **Hiera-T** variant (smallest, most portable). Checkpoint from `wanglab/MedSAM2`, built on the
 `sam2` package.
 
-## Plan (staged parity, like the SAM port)
-1. **Hiera image encoder** → parity vs PyTorch (the big new piece)
-2. prompt encoder + mask decoder, **single-image** path (no memory) → single-frame inference
-3. **memory attention + memory encoder** → 3D volume / video (the temporal core)
-4. training ; 5. WASM ; 6. GPU (cuBLAS seam)
+## Status (staged parity, like the SAM port)
+1. ✅ **Hiera image encoder** (trunk + FPN neck) → parity: stages 1.8e-6..2.4e-5, FPN 2.8e-7..1.8e-6 MATCH
+2. ✅ **prompt encoder + SAM2 mask decoder** (single-image, no memory) → masks 8.4e-5, iou 2.4e-7, obj exact MATCH.
+   `infer_medsam2 <img> <x> <y>` = single-frame click→mask (Hiera + SAM2 decoder).
+3. ⏭ **memory attention + memory encoder** → 3D volume / video (the SAM2 temporal core; RoPE)
+4. ⏭ training ; 5. WASM ; 6. GPU (cuBLAS seam)
 
 Reuses from medsam_cpp: engine (`autograd/backend/ops2d/linalg/...`) + `sam_ops`/`sam_loss`/`net_sam`
 (decoder pieces). New: `net_hiera.hpp`, memory attention, `pure/ref/*`.
