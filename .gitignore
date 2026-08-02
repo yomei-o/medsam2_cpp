@@ -12,3 +12,6 @@ __pycache__/
 /*.png
 pure/ref/*.bin
 weights/
+vol_test/
+track_out/
+*.log
