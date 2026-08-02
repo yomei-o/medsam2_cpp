@@ -69,6 +69,7 @@ int main(int argc, char** argv){
   auto encode_mem = [&](std::vector<Tensor>& fpn, const Tensor& mask256, bool from_pts, float obj_score){
     Tensor hires = up1024(mask256);
     std::vector<float> mfm(1024*1024); for(size_t i=0;i<mfm.size();++i) mfm[i]=(1.f/(1.f+std::exp(-hires->data[i])))*20.f-10.f;
+    cw.off=0;                                    // rewind memory-encoder weight reader (reused every frame)
     Tensor mm = memenc_forward(fpn[2], from_data({1,1,1024,1024},mfm,false), cw, true);
     return mm;
   };
@@ -102,6 +103,7 @@ int main(int argc, char** argv){
       for (int d=1; d<NUM_MASKMEM && tp>=1; ++d){ int pf = t - ((t>ps)?d:-d); // previous frame in propagation dir
         if (pf!=ps && pf>=0 && pf<N && fmem[pf].maskmem){ mems.push_back({fmem[pf].maskmem, tp--});
           if ((int)ptrs.size()<MAX_OBJ_PTRS) ptrs.push_back({fmem[pf].obj_ptr, (float)(t-pf)}); } }
+      mw.off=0;                                                    // rewind memory-attention reader (reused every frame)
       Tensor pix = prop_condition_multi(sp2tok(fpn[2]), sp2tok(pp.vision_pos), mems, ptrs, mw, pp, N);
       dw.off=0; Sam2Out o = sam2_decode(pix, fpn[0], fpn[1], {0.f,0.f}, {-1}, dw);   // no prompt
       fmem[t].obj_ptr = obj_ptr_proj(slice_rows(o.mask_tokens,0,1), pp);
