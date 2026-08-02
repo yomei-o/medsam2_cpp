@@ -1,0 +1,14 @@
+build/
+*.exe
+*.obj
+*.lib
+*.exp
+*.pdb
+*.o
+*.onnx
+*.pt
+*.pth
+__pycache__/
+/*.png
+pure/ref/*.bin
+weights/
