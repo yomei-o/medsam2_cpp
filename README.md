@@ -1,4 +1,9 @@
-# medsam2_cpp — pure C++ MedSAM2 (medical Segment Anything 2) — WIP
+# medsam2_cpp — pure C++ MedSAM2 (medical Segment Anything 2)
+
+## 🩻 Live demo — [**yomei-o.github.io/medsam2_cpp/wasm/**](https://yomei-o.github.io/medsam2_cpp/wasm/)
+Single-image click-to-segment in your browser (Hiera encoder + SAM2 decoder, WebAssembly, no server).
+Open → **Encode** (the Hiera encoder runs once, ~tens of seconds) → **click** an organ/structure to
+segment it. A sample abdominal-CT slice loads by default, or pick your own image.
 
 [MedSAM2](https://github.com/bowang-lab/MedSAM2) (promptable segmentation for 3D medical volumes and
 videos) ported to a dependency-free C++ autograd engine — no PyTorch at run time. Same approach as the
