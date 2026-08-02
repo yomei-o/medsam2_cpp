@@ -22,10 +22,10 @@ inline MemW load_memattn(const std::string& dir) {
 // 2D axial RoPE on x[N, dim] over an HxW grid (token n at x=n%W, y=n/W). Rotates pairs (x[2j],x[2j+1]).
 // freqs[k] = theta^(-4k/dim), k in [0,dim/4). For pair j<dim/4: angle = px*freqs[j]; else py*freqs[j-dim/4].
 inline Tensor rope2d(const Tensor& x, int64_t H, int64_t W, float theta = 10000.f) {
-  int64_t N = x->shape[0], dim = x->shape[1], q = dim / 4;
+  int64_t N = x->shape[0], dim = x->shape[1], q = dim / 4, HW = H * W;
   std::vector<float> freqs(q); for (int64_t k = 0; k < q; ++k) freqs[k] = 1.f / std::pow(theta, (float)(4 * k) / dim);
   std::vector<float> o((size_t)N * dim);
-  for (int64_t n = 0; n < N; ++n) { float px = (float)(n % W), py = (float)(n / W); const float* xr = &x->data[n * dim]; float* orow = &o[n * dim];
+  for (int64_t n = 0; n < N; ++n) { int64_t pn = n % HW; float px = (float)(pn % W), py = (float)(pn / W); const float* xr = &x->data[n * dim]; float* orow = &o[n * dim];   // cyclic (repeat_freqs_k for multi-frame memory)
     for (int64_t j = 0; j < dim / 2; ++j) {
       float ang = (j < q) ? px * freqs[j] : py * freqs[j - q];
       float c = std::cos(ang), s = std::sin(ang), a = xr[2 * j], b = xr[2 * j + 1];
@@ -43,7 +43,7 @@ inline Tensor mem_attn(const Tensor& q, const Tensor& k, const Tensor& v) {
 
 // full memory_attention: curr[N,256], curr_pos[N,256], memory[M,64], memory_pos[M,64] -> [N,256]
 inline Tensor memory_attention(const Tensor& curr, const Tensor& curr_pos, const Tensor& memory, const Tensor& memory_pos,
-                               MemW& w, int64_t H = 64, int64_t Wd = 64, int layers = 4) {
+                               MemW& w, int64_t H = 64, int64_t Wd = 64, int layers = 4, int64_t num_k_exclude_rope = 0) {
   Tensor out = add(curr, mul_scalar(curr_pos, 0.1f));               // pos_enc_at_input
   for (int L = 0; L < layers; ++L) {
     // self-attn: q=k=rope(norm1(tgt)); v=norm1(tgt) (pos_enc_at_attn=False)
@@ -66,7 +66,11 @@ inline Tensor memory_attention(const Tensor& curr, const Tensor& curr_pos, const
     Tensor c2 = layernorm(out, n2w, n2b, 1e-5f);
     Tensor cq = rope2d(add_rowvec(matmul(c2, cqW), cqB), H, Wd);
     Tensor km = add(memory, memory_pos);                            // pos_enc_at_cross_attn_keys=True
-    Tensor ck = rope2d(add_rowvec(matmul(km, ckW), ckB), H, Wd);
+    Tensor ckp = add_rowvec(matmul(km, ckW), ckB);                  // [Nk,256]
+    int64_t Nk = ckp->shape[0], Nrope = Nk - num_k_exclude_rope;    // obj-pointer tokens (last exclude) skip RoPE
+    Tensor ck = num_k_exclude_rope > 0
+              ? vcat({rope2d(slice_rows(ckp, 0, Nrope), H, Wd), slice_rows(ckp, Nrope, Nk)})
+              : rope2d(ckp, H, Wd);
     Tensor cv = add_rowvec(matmul(memory, cvW), cvB);
     out = add(out, add_rowvec(matmul(mem_attn(cq, ck, cv), coW), coB));
 
