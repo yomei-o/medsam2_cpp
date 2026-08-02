@@ -62,3 +62,23 @@ inline Tensor prop_condition(const Tensor& feat1, const Tensor& pos1, const Tens
   Tensor out = memory_attention(feat1, pos1, memory, memory_pos, mw, 64, 64, 4, excl);
   return reshape(transpose2d(out), {1, 256, 64, 64});
 }
+
+// multi-frame conditioning: mems = list of (maskmem[1,64,64,64], t_pos); ptrs = list of (obj_ptr[1,256],
+// signed Δt). memory = [all spatial memories ; all obj-pointer tokens (4 per ptr)]. Matches SAM2.
+inline Tensor prop_condition_multi(const Tensor& feat, const Tensor& pos,
+    const std::vector<std::pair<Tensor,int>>& mems, const std::vector<std::pair<Tensor,float>>& ptrs,
+    MemW& mw, PropW& p, int num_frames, int max_obj_ptrs = 16) {
+  int t_diff_max = std::min(num_frames, max_obj_ptrs) - 1;
+  std::vector<Tensor> smem, spos;
+  for (auto& [mm, tp] : mems) { smem.push_back(sp2tok(mm));
+    spos.push_back(add_rowvec(sp2tok(p.maskmem_pos), slice_rows(reshape(p.maskmem_tpos_enc, {7,64}), 7 - tp - 1, 7 - tp))); }
+  std::vector<Tensor> omem, opos;
+  for (auto& [op, dt] : ptrs) { omem.push_back(reshape(op, {4,64}));
+    Tensor o1 = add_rowvec(matmul(sine1d(dt / t_diff_max), p.optp_w), p.optp_b); opos.push_back(vcat({o1,o1,o1,o1})); }
+  std::vector<Tensor> allm = smem, allp = spos;
+  for (auto& t : omem) allm.push_back(t); for (auto& t : opos) allp.push_back(t);
+  Tensor memory = vcat(allm), memory_pos = vcat(allp);
+  int64_t nobj = (int64_t)ptrs.size() * 4;
+  Tensor out = memory_attention(feat, pos, memory, memory_pos, mw, 64, 64, 4, nobj);
+  return reshape(transpose2d(out), {1, 256, 64, 64});
+}
