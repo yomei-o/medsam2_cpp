@@ -33,7 +33,12 @@ track_volume <slice_dir> <prompt_slice> <x> <y> [ref_dir] [out_dir]
 `slice_dir` = a folder of PNG/JPG slices sorted by name; click `<x> <y>` on `<prompt_slice>`; writes a
 mask-overlay `slice_NNN.png` per slice into `out_dir` (default `track_out/`).
 
-Next (optional): training ; WASM ; GPU (cuBLAS seam).
+7. ✅ **decoder fine-tuning** (`pure/train_medsam2.cpp`) — freeze Hiera, train the SAM2 mask decoder with focal+dice(+IoU): mask_loss 7.63 → 0.088, IoU 0.03 → 0.98
+8. ✅ **WASM browser demo** (`wasm/`) — single-image click-to-segment in-browser (Hiera + SAM2 decoder), verified end-to-end (encode 28.7 s → mask); fp16 weights served for GitHub Pages
+9. ✅ **GPU (cuBLAS) Colab notebook** (`colab_medsam2_gpu.ipynb`) — `nvcc -DUSE_CUDA` offloads matmul/conv GEMMs to cuBLAS; builds + infers + trains on a T4
+
+Everything runs with no PyTorch/CMake at run time. The only Python is the one-time weight extraction
+(`pure/ref/export_*.py`, needs the `sam2` package + the MedSAM2 checkpoint).
 
 Reuses from medsam_cpp: engine (`autograd/backend/ops2d/linalg/...`) + `sam_ops`/`sam_loss`/`net_sam`
 (decoder pieces). New: `net_hiera.hpp`, memory attention, `pure/ref/*`.
