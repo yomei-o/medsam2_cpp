@@ -35,8 +35,8 @@ inline Tensor cxblock(const Tensor& x, MencW& w, int64_t C, int64_t H, int64_t W
 }
 
 // memory_encoder: pix_feat[1,256,64,64] + masks[1,1,1024,1024] -> memory features [1,64,64,64]
-inline Tensor memenc_forward(const Tensor& pix_feat, const Tensor& masks_logits, MencW& w) {
-  Tensor mk = sigmoid_t(masks_logits);
+inline Tensor memenc_forward(const Tensor& pix_feat, const Tensor& masks_logits, MencW& w, bool skip_sigmoid = false) {
+  Tensor mk = skip_sigmoid ? masks_logits : sigmoid_t(masks_logits);   // track: mask already sigmoid*20-10
   // mask_downsampler: 4x (conv3/s2/p1 -> LN2d -> GELU), then 1x1
   int64_t chin = 1; const int64_t chs[4] = {4,16,64,256};
   Tensor m = mk;

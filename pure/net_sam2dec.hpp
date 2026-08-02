@@ -7,7 +7,7 @@
 #include "sam_ops.hpp"       // layernorm2d
 #include <vector>
 
-struct Sam2Out { Tensor masks, iou, obj; };
+struct Sam2Out { Tensor masks, iou, obj, mask_tokens; };
 inline Sam2Out sam2_decode(const Tensor& img_embed, const Tensor& hr256, const Tensor& hr128,
                            const std::vector<float>& pts, const std::vector<int>& labels, SamW& w) {
   auto& c = w.cfg; int64_t E = c.embed, S = c.img, HW = S * S, Np = (int64_t)labels.size();
@@ -86,5 +86,5 @@ inline Sam2Out sam2_decode(const Tensor& img_embed, const Tensor& hr256, const T
   Tensor o0w=w.take({E,E}), o0b=w.take({E}), o1w=w.take({E,E}), o1b=w.take({E}), o2w=w.take({E,1}), o2b=w.take({1});
   Tensor oh = relu(add_rowvec(matmul(obj_out,o0w),o0b)); oh=relu(add_rowvec(matmul(oh,o1w),o1b));
   Tensor obj = add_rowvec(matmul(oh,o2w),o2b);
-  return {masks, iou, obj};
+  return {masks, iou, obj, mask_out};
 }

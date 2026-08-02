@@ -10,8 +10,10 @@
 
 struct PropW {                                                    // constants from export_prop.py
   Tensor no_mem_embed, no_mem_pos_enc, maskmem_tpos_enc, no_obj_embed_spatial, no_obj_ptr;
+  Tensor opp_w[3], opp_b[3];                                      // obj_ptr_proj (MLP 256->256->256->256)
   Tensor optp_w, optp_b;                                          // obj_ptr_tpos_proj (256->64)
   Tensor maskmem_pos;                                             // precomputed sine [1,64,64,64]
+  Tensor vision_pos;                                             // precomputed vision_pos_enc [1,256,64,64]
 };
 inline PropW load_prop(const std::string& dir) {
   std::string D = dir; if (!D.empty() && D.back() != '/') D += '/';
@@ -22,10 +24,17 @@ inline PropW load_prop(const std::string& dir) {
   PropW p;
   p.no_mem_embed = take({1,1,256}); p.no_mem_pos_enc = take({1,1,256}); p.maskmem_tpos_enc = take({7,1,1,64});
   p.no_obj_embed_spatial = take({1,64}); p.no_obj_ptr = take({1,256});
-  for (int i = 0; i < 3; ++i) { take({256,256}); take({256}); }   // obj_ptr_proj (unused here — obj_ptr given)
+  for (int i = 0; i < 3; ++i) { p.opp_w[i] = take({256,256}); p.opp_b[i] = take({256}); }   // obj_ptr_proj
   p.optp_w = take({256,64}); p.optp_b = take({64});
   p.maskmem_pos = take({1,64,64,64});
+  { std::ifstream vf(D + "prop_vispos.bin", std::ios::binary); if (vf) { std::vector<float> vb(256*64*64); vf.read((char*)vb.data(), vb.size()*4); p.vision_pos = from_data({1,256,64,64}, vb, false); } }
   return p;
+}
+// obj_ptr_proj: MLP 256->256->256->256 (ReLU); last layer no ReLU. (SAM2 obj_ptr_proj)
+inline Tensor obj_ptr_proj(const Tensor& mask_token, PropW& p) {
+  Tensor h = relu(add_rowvec(matmul(mask_token, p.opp_w[0]), p.opp_b[0]));
+  h = relu(add_rowvec(matmul(h, p.opp_w[1]), p.opp_b[1]));
+  return add_rowvec(matmul(h, p.opp_w[2]), p.opp_b[2]);
 }
 
 // 1D sine pos emb (get_1d_sine_pe): dim=256 -> [256]. pe_dim=128; dim_t[k]=temp^(2*(k//2)/pe_dim).
