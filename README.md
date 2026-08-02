@@ -20,11 +20,20 @@ Reference: **Hiera-T** variant (smallest, most portable). Checkpoint from `wangl
    `infer_medsam2 <img> <x> <y>` = single-frame click→mask (Hiera + SAM2 decoder).
 3. ✅ **memory_attention (RoPE)** + **memory_encoder** + **propagation conditioning** → parity (3.29e-5 / 1.19e-6 / 2.53e-5 MATCH)
 4. ✅ **full multi-frame track** (`pure/track_medsam2.cpp`) — end-to-end 3D propagation reproduces PyTorch (obj_ptr 2e-6, mm0 1.7e-5, frame1 mask 3.2e-4 MATCH)
+5. ✅ **multi-frame memory bank** (`prop_condition_multi`, `pure/m7_prop3.cpp`) — N spatial memories + N obj pointers, 3-frame conditioning worst 6.9e-5 MATCH
+6. ✅ **real-volume / video track CLI** (`pure/track_volume.cpp`) — click one slice → propagate the mask to every slice, forward+backward, per-slice overlay PNG
 
 **MedSAM2 (SAM2) is complete in pure C++**: Hiera encoder + SAM2 decoder + memory attention (RoPE) +
-memory encoder + the full frame-to-frame track loop, all matching PyTorch — i.e. click one slice, it
-propagates to the rest of the volume/video. Next (optional): a real-volume track CLI, training, WASM, GPU.
-4. ⏭ training ; 5. WASM ; 6. GPU (cuBLAS seam)
+memory encoder + the full frame-to-frame track loop + multi-frame memory bank, all matching PyTorch — i.e.
+click one slice, it propagates to the rest of the volume/video.
+
+```
+track_volume <slice_dir> <prompt_slice> <x> <y> [ref_dir] [out_dir]
+```
+`slice_dir` = a folder of PNG/JPG slices sorted by name; click `<x> <y>` on `<prompt_slice>`; writes a
+mask-overlay `slice_NNN.png` per slice into `out_dir` (default `track_out/`).
+
+Next (optional): training ; WASM ; GPU (cuBLAS seam).
 
 Reuses from medsam_cpp: engine (`autograd/backend/ops2d/linalg/...`) + `sam_ops`/`sam_loss`/`net_sam`
 (decoder pieces). New: `net_hiera.hpp`, memory attention, `pure/ref/*`.
